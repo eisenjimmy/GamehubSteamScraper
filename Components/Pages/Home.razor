@@ -1,0 +1,394 @@
+﻿@page "/"
+@inject SteamApiService SteamApi
+@inject ExportService ExportService
+@inject ILocalStorageService LocalStorage
+@inject IJSRuntime JS
+@rendermode InteractiveServer
+
+<PageTitle>Steam Scraper for ES-DE</PageTitle>
+
+<!-- Header -->
+<header class="glass sticky top-0 z-40 px-4 sm:px-6 py-3 sm:py-4">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2 sm:gap-3">
+            <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-steam-blue to-blue-400 flex items-center justify-center flex-shrink-0">
+                <svg class="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-lg sm:text-xl font-bold gradient-text">Steam Scraper</h1>
+                <p class="text-xs text-steam-light/60 hidden sm:block">for ES-DE</p>
+            </div>
+        </div>
+        
+        <div class="flex items-center gap-2 sm:gap-4">
+            <span class="text-xs sm:text-sm text-steam-light/60 whitespace-nowrap">
+                @games.Count game@(games.Count != 1 ? "s" : "")
+            </span>
+            <button @onclick="ExportGames" 
+                    disabled="@(games.Count == 0 || isExporting)"
+                    class="px-3 sm:px-5 py-2 sm:py-2.5 bg-gradient-to-r from-steam-blue to-blue-400 text-white text-sm sm:text-base font-medium rounded-xl 
+                           hover:shadow-lg hover:shadow-steam-blue/25 transition-all duration-300 
+                           disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 sm:gap-2">
+                @if (isExporting)
+                {
+                    <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span class="hidden sm:inline">Exporting...</span>
+                }
+                else
+                {
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                    <span>Export</span>
+                }
+            </button>
+        </div>
+    </div>
+</header>
+
+<!-- Main Content -->
+<main class="max-w-7xl mx-auto px-6 py-8">
+    <!-- Search Section -->
+    <div class="mb-8">
+        <div class="relative max-w-2xl mx-auto">
+            <div class="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                <svg class="w-5 h-5 text-steam-light/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+            </div>
+            <input type="text" 
+                   value="@searchQuery"
+                   @oninput="HandleSearchInput"
+                   placeholder="Search for a Steam game..." 
+                   class="w-full pl-12 pr-4 py-4 bg-steam-dark/80 border border-steam-blue/20 rounded-2xl 
+                          text-steam-light placeholder-steam-light/40 focus:outline-none focus:border-steam-blue/50 
+                          focus:ring-2 focus:ring-steam-blue/20 transition-all duration-300" />
+            
+            @if (isSearching)
+            {
+                <div class="absolute inset-y-0 right-4 flex items-center">
+                    <svg class="animate-spin w-5 h-5 text-steam-blue" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                    </svg>
+                </div>
+            }
+            
+            <!-- Autocomplete Dropdown -->
+            @if (searchResults.Any())
+            {
+                <div class="absolute top-full left-0 right-0 mt-2 glass rounded-xl overflow-hidden shadow-2xl z-50">
+                    @foreach (var result in searchResults)
+                    {
+                        <button @onclick="() => AddGame(result.Appid)" 
+                                class="w-full px-4 py-3 text-left text-steam-light hover:bg-steam-blue/20 
+                                       transition-colors duration-200 flex items-center gap-3 border-b border-steam-blue/10 last:border-0">
+                            <img src="https://steamcdn-a.akamaihd.net/steam/apps/@result.Appid/capsule_sm_120.jpg" 
+                                 alt="@result.Name" 
+                                 class="w-16 h-8 object-cover rounded"
+                                 onerror="this.style.display='none'" />
+                            <span class="truncate">@result.Name</span>
+                        </button>
+                    }
+                </div>
+            }
+        </div>
+        <p class="text-center text-sm text-steam-light/40 mt-3">
+            Type to search Steam's game library • Click a result to add it to your collection
+        </p>
+    </div>
+    
+    <!-- Status Message -->
+    @if (!string.IsNullOrEmpty(statusMessage))
+    {
+        <div class="mb-6 p-4 glass rounded-xl text-center @(isError ? "text-red-400" : "text-steam-blue")">
+            @statusMessage
+        </div>
+    }
+
+    <!-- Games Grid -->
+    @if (games.Any())
+    {
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+            @foreach (var game in games.OrderByDescending(g => g.AddedDate))
+            {
+                <div class="game-card glass rounded-xl overflow-hidden group relative">
+                    <div class="aspect-[2/3] relative">
+                        <img src="@game.CoverUrl" 
+                             alt="@game.Name" 
+                             class="w-full h-full object-cover"
+                             onerror="this.src='@game.HeaderUrl'" />
+                        
+                        <!-- Overlay on hover -->
+                        <div class="absolute inset-0 bg-gradient-to-t from-steam-darker via-transparent to-transparent 
+                                    opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                        
+                        <!-- Remove button -->
+                        <button @onclick="() => RemoveGame(game)" 
+                                class="absolute top-2 right-2 w-8 h-8 bg-red-500/80 rounded-lg 
+                                       flex items-center justify-center opacity-0 group-hover:opacity-100 
+                                       hover:bg-red-500 transition-all duration-300">
+                            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                            </svg>
+                        </button>
+                        
+                        <!-- Screenshot count badge -->
+                        @if (game.ScreenshotUrls.Any())
+                        {
+                            <div class="absolute bottom-2 left-2 px-2 py-1 bg-steam-darker/80 rounded-lg text-xs text-steam-light/80 
+                                        flex items-center gap-1">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                                </svg>
+                                @game.ScreenshotUrls.Count
+                            </div>
+                        }
+                    </div>
+                    <div class="p-3">
+                        <h3 class="text-sm font-medium text-steam-light truncate" title="@game.Name">
+                            @game.Name
+                        </h3>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <!-- Empty State -->
+        <div class="text-center py-16">
+            <div class="w-24 h-24 mx-auto mb-6 rounded-full bg-steam-dark/50 flex items-center justify-center animate-float">
+                <svg class="w-12 h-12 text-steam-blue/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                </svg>
+            </div>
+            <h2 class="text-2xl font-semibold text-steam-light mb-2">No Games Added</h2>
+            <p class="text-steam-light/60 max-w-md mx-auto">
+                Search for Steam games above and click on them to add to your collection. 
+                When ready, export them as a ZIP file for ES-DE.
+            </p>
+        </div>
+    }
+</main>
+
+<!-- Export Progress Modal -->
+@if (showExportProgress)
+{
+    <div class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div class="glass rounded-2xl p-8 max-w-md w-full mx-4">
+            <h3 class="text-xl font-semibold text-steam-light mb-4">Exporting Games</h3>
+            <div class="mb-4">
+                <div class="h-2 bg-steam-dark rounded-full overflow-hidden">
+                    <div class="h-full bg-gradient-to-r from-steam-blue to-blue-400 transition-all duration-300"
+                         style="width: @exportProgress%"></div>
+                </div>
+            </div>
+            <p class="text-steam-light/60 text-sm">@exportMessage</p>
+        </div>
+    </div>
+}
+
+@code {
+    private List<GameInfo> games = new();
+    private List<SteamApp> searchResults = new();
+    private string searchQuery = "";
+    private string statusMessage = "";
+    private bool isError = false;
+    private bool isSearching = false;
+    private bool isExporting = false;
+    private bool showExportProgress = false;
+    private int exportProgress = 0;
+    private string exportMessage = "";
+    private CancellationTokenSource? _searchCts;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Load games from localStorage
+            try
+            {
+                var stored = await LocalStorage.GetItemAsync<List<GameInfo>>("games");
+                if (stored != null)
+                {
+                    games = stored;
+                    StateHasChanged();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading games: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task HandleSearchInput(ChangeEventArgs e)
+    {
+        searchQuery = e.Value?.ToString() ?? "";
+        
+        // Cancel any pending search
+        _searchCts?.Cancel();
+        _searchCts = new CancellationTokenSource();
+        var token = _searchCts.Token;
+        
+        // Debounce with 300ms delay
+        try
+        {
+            await Task.Delay(300, token);
+            if (!token.IsCancellationRequested)
+            {
+                await SearchGames();
+            }
+        }
+        catch (TaskCanceledException)
+        {
+            // Debounce cancelled, new search pending
+        }
+    }
+
+    private async Task SearchGames()
+    {
+        if (string.IsNullOrWhiteSpace(searchQuery) || searchQuery.Length < 2)
+        {
+            searchResults.Clear();
+            return;
+        }
+
+        isSearching = true;
+        StateHasChanged();
+
+        try
+        {
+            searchResults = await SteamApi.SearchGamesAsync(searchQuery);
+        }
+        catch (Exception ex)
+        {
+            ShowStatus($"Search error: {ex.Message}", true);
+        }
+        finally
+        {
+            isSearching = false;
+        }
+    }
+
+    private async Task AddGame(int appId)
+    {
+        // Check if already added
+        if (games.Any(g => g.AppId == appId))
+        {
+            ShowStatus("This game is already in your collection!", true);
+            searchResults.Clear();
+            searchQuery = "";
+            return;
+        }
+
+        ShowStatus("Fetching game details...", false);
+
+        try
+        {
+            var gameInfo = await SteamApi.GetGameDetailsAsync(appId);
+            if (gameInfo != null)
+            {
+                games.Add(gameInfo);
+                await SaveGames();
+                ShowStatus($"Added {gameInfo.Name}!", false);
+            }
+            else
+            {
+                ShowStatus("Could not fetch game details.", true);
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowStatus($"Error adding game: {ex.Message}", true);
+        }
+
+        searchResults.Clear();
+        searchQuery = "";
+    }
+
+    private async Task RemoveGame(GameInfo game)
+    {
+        games.Remove(game);
+        await SaveGames();
+        ShowStatus($"Removed {game.Name}", false);
+    }
+
+    private async Task SaveGames()
+    {
+        try
+        {
+            await LocalStorage.SetItemAsync("games", games);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving games: {ex.Message}");
+        }
+    }
+
+    private async Task ExportGames()
+    {
+        if (games.Count == 0) return;
+
+        isExporting = true;
+        showExportProgress = true;
+        exportProgress = 0;
+        exportMessage = "Preparing export...";
+        StateHasChanged();
+
+        try
+        {
+            var progress = new Progress<(int current, int total, string message)>(p =>
+            {
+                exportProgress = (int)((double)p.current / p.total * 100);
+                exportMessage = p.message;
+                InvokeAsync(StateHasChanged);
+            });
+
+            var zipBytes = await ExportService.ExportToZipAsync(games, progress);
+            
+            exportMessage = "Downloading ZIP file...";
+            StateHasChanged();
+
+            // Trigger download via JS
+            var fileName = $"ES-DE_Media_{DateTime.Now:yyyyMMdd_HHmmss}.zip";
+            await JS.InvokeVoidAsync("downloadFileFromBytes", fileName, Convert.ToBase64String(zipBytes));
+
+            ShowStatus("Export complete! Check your downloads.", false);
+        }
+        catch (Exception ex)
+        {
+            ShowStatus($"Export failed: {ex.Message}", true);
+        }
+        finally
+        {
+            isExporting = false;
+            showExportProgress = false;
+        }
+    }
+
+    private void ShowStatus(string message, bool error)
+    {
+        statusMessage = message;
+        isError = error;
+        
+        // Auto-clear after 5 seconds
+        _ = Task.Delay(5000).ContinueWith(_ =>
+        {
+            InvokeAsync(() =>
+            {
+                if (statusMessage == message)
+                {
+                    statusMessage = "";
+                    StateHasChanged();
+                }
+            });
+        });
+    }
+}

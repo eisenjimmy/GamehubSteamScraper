@@ -1,0 +1,98 @@
+﻿<!DOCTYPE html>
+<html lang="en" class="dark">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Steam Scraper for ES-DE</title>
+    <base href="/" />
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        steam: {
+                            dark: '#1b2838',
+                            darker: '#171a21',
+                            blue: '#66c0f4',
+                            light: '#c7d5e0'
+                        }
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'float': 'float 6s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0px)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+        
+        /* Glassmorphism */
+        .glass {
+            background: rgba(27, 40, 56, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(102, 192, 244, 0.1);
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #171a21; }
+        ::-webkit-scrollbar-thumb { background: #66c0f4; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #8dd3f8; }
+        
+        /* Gradient text */
+        .gradient-text {
+            background: linear-gradient(135deg, #66c0f4 0%, #8dd3f8 50%, #66c0f4 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        /* Card hover effect */
+        .game-card {
+            transition: all 0.3s ease;
+        }
+        .game-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(102, 192, 244, 0.15);
+        }
+    </style>
+    
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <HeadOutlet />
+</head>
+
+<body class="bg-steam-darker">
+    <Routes />
+    <script>
+        function downloadFileFromBytes(fileName, base64Data) {
+            const link = document.createElement('a');
+            link.href = 'data:application/zip;base64,' + base64Data;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+    <script src="_framework/blazor.web.js"></script>
+</body>
+
+</html>
