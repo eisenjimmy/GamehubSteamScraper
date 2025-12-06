@@ -33,17 +33,21 @@ public class ExportService
                 progress?.Report((current, total, $"Processing {game.Name}..."));
 
                 // Download and add cover art
-                await TryAddImageToArchive(archive, game.CoverUrl, $"covers/{safeFileName}.jpg", game.Name, "cover");
+                await TryAddImageToArchive(archive, game.CoverUrl, $"ES-DE/downloaded_media/steam/covers/{safeFileName}.jpg", game.Name, "cover");
 
-                // Download and add Steam header/capsule image
-                await TryAddImageToArchive(archive, game.HeaderUrl, $"steam/{safeFileName}.jpg", game.Name, "header");
+                // Download and add Steam header/capsule image (miximages for ES-DE)
+                await TryAddImageToArchive(archive, game.HeaderUrl, $"ES-DE/downloaded_media/steam/miximages/{safeFileName}.jpg", game.Name, "header");
 
                 // Download and add first screenshot
                 if (game.ScreenshotUrls.Any())
                 {
                     await TryAddImageToArchive(archive, game.ScreenshotUrls.First(), 
-                        $"screenshots/{safeFileName}.jpg", game.Name, "screenshot");
+                        $"ES-DE/downloaded_media/steam/screenshots/{safeFileName}.jpg", game.Name, "screenshot");
                 }
+
+                // Create empty .steam ROM file for ES-DE
+                var steamRomEntry = archive.CreateEntry($"ROMS/Steam/{safeFileName}.steam", CompressionLevel.NoCompression);
+                _logger.LogDebug("Added ROM file for {GameName}", game.Name);
             }
         }
 
