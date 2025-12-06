@@ -1,5 +1,5 @@
 # 🎮 GameHub Steam Scraper
-
+https://gamehubsteamscraper-bbg0dpawcsc2hybh.eastus2-01.azurewebsites.net/ (free to use)
 A Blazor Server application that scrapes Steam cover art, screenshots, and metadata for use with **ES-DE** (EmulationStation Desktop Edition).
 
 ![.NET](https://img.shields.io/badge/.NET-9.0-512BD4?logo=dotnet)
